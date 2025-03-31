@@ -153,9 +153,11 @@ router.delete('/:id', auth, async (req, res) => {
       $pull: { foodCarts: foodCart._id }
     });
 
-    await foodCart.remove();
+    // Delete the food cart
+    await FoodCart.findByIdAndDelete(req.params.id);
     res.json({ message: 'Food cart deleted' });
   } catch (error) {
+    console.error('Error deleting food cart:', error);
     res.status(500).json({ error: error.message });
   }
 });

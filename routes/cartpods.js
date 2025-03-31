@@ -83,9 +83,11 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to delete this cart pod' });
     }
 
-    await cartPod.remove();
+    // Delete the cart pod
+    await CartPod.findByIdAndDelete(req.params.id);
     res.json({ message: 'Cart pod deleted' });
   } catch (error) {
+    console.error('Error deleting cart pod:', error);
     res.status(500).json({ error: error.message });
   }
 });
