@@ -28,11 +28,12 @@ app.use('/api/cartpods', require('./routes/cartpods'));
 app.use('/api/foodcarts', require('./routes/foodcarts'));
 app.use('/api/upload', require('./routes/upload'));
 
-// Serve static assets in production
+// Serve static files from the React build directory in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static('client/build'));
+  app.use(express.static(path.join(__dirname, 'client/build')));
+
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
 }
 
