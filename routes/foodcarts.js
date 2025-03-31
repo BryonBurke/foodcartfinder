@@ -33,12 +33,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new food cart
-router.post('/', auth, upload.array('images', 10), async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     console.log('Received request body:', req.body);
-    console.log('Received files:', req.files);
     
-    const { name, cartPodId, location, foodServed } = req.body;
+    const { name, cartPodId, location, foodServed, image, menuImages, specialsImages } = req.body;
     
     // Validate required fields
     if (!name || !cartPodId || !location || !foodServed) {
@@ -47,68 +46,25 @@ router.post('/', auth, upload.array('images', 10), async (req, res) => {
     }
 
     // Validate location format
-    try {
-      const parsedLocation = JSON.parse(location);
-      if (!parsedLocation.type || !parsedLocation.coordinates || !Array.isArray(parsedLocation.coordinates)) {
-        console.error('Invalid location format:', parsedLocation);
-        return res.status(400).json({ error: 'Invalid location format' });
-      }
-    } catch (error) {
-      console.error('Error parsing location:', error);
+    if (!location.type || !location.coordinates || !Array.isArray(location.coordinates)) {
+      console.error('Invalid location format:', location);
       return res.status(400).json({ error: 'Invalid location format' });
     }
-    
-    // Upload images to Cloudinary
-    if (!req.files || req.files.length === 0) {
+
+    // Validate that at least one image is provided
+    if (!image && (!menuImages || menuImages.length === 0) && (!specialsImages || specialsImages.length === 0)) {
       console.error('No images provided');
       return res.status(400).json({ error: 'At least one image is required' });
     }
-
-    // Log Cloudinary configuration
-    console.log('Cloudinary config:', {
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET ? '***' : undefined,
-      upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET
-    });
-
-    const uploadPromises = req.files.map(file => {
-      return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            resource_type: 'auto',
-            folder: 'foodcarts'
-          },
-          (error, result) => {
-            if (error) {
-              console.error('Cloudinary upload error:', error);
-              console.error('Error details:', {
-                message: error.message,
-                name: error.name,
-                http_code: error.http_code,
-                api_key: error.api_key
-              });
-              reject(error);
-            } else {
-              resolve(result.secure_url);
-            }
-          }
-        );
-        uploadStream.end(file.buffer);
-      });
-    });
-
-    const imageUrls = await Promise.all(uploadPromises);
-    console.log('Uploaded image URLs:', imageUrls);
     
     const foodCart = new FoodCart({
       name,
       cartPod: cartPodId,
-      location: JSON.parse(location),
-      image: imageUrls[0],
-      menuImages: imageUrls.slice(1, 6),
-      specialsImages: imageUrls.slice(6),
-      foodServed: JSON.parse(foodServed),
+      location,
+      image: image || null,
+      menuImages: menuImages || [],
+      specialsImages: specialsImages || [],
+      foodServed,
       createdBy: req.user._id
     });
 
@@ -142,7 +98,15 @@ router.patch('/:id', auth, upload.array('images', 10), async (req, res) => {
       const uploadPromises = req.files.map(file => {
         return new Promise((resolve, reject) => {
           const uploadStream = cloudinary.uploader.upload_stream(
-            { resource_type: 'auto' },
+            {
+              resource_type: 'image',
+              folder: 'foodcarts',
+              format: 'jpg',
+              transformation: [
+                { width: 800, height: 600, crop: 'fill' },
+                { quality: 'auto' }
+              ]
+            },
             (error, result) => {
               if (error) reject(error);
               else resolve(result.secure_url);

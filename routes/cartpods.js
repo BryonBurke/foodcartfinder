@@ -6,7 +6,10 @@ const auth = require('../middleware/auth');
 // Get all cart pods
 router.get('/', async (req, res) => {
   try {
-    const cartPods = await CartPod.find().populate('foodCarts');
+    const cartPods = await CartPod.find().populate({
+      path: 'foodCarts',
+      select: 'name image foodServed location'
+    });
     res.json(cartPods);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -16,7 +19,10 @@ router.get('/', async (req, res) => {
 // Get cart pod by ID
 router.get('/:id', async (req, res) => {
   try {
-    const cartPod = await CartPod.findById(req.params.id).populate('foodCarts');
+    const cartPod = await CartPod.findById(req.params.id).populate({
+      path: 'foodCarts',
+      select: 'name image foodServed location'
+    });
     if (!cartPod) {
       return res.status(404).json({ error: 'Cart pod not found' });
     }

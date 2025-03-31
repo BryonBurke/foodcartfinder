@@ -1,28 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
 
-// Ensure uploads directory exists
-const uploadDir = 'uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-// Configure multer for handling file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Configure multer for handling file uploads in memory
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
@@ -37,14 +20,37 @@ const upload = multer({
 });
 
 // Handle multiple image uploads
-router.post('/', upload.array('images', 10), (req, res) => {
+router.post('/', upload.array('images', 10), async (req, res) => {
   try {
-    const urls = req.files.map(file => {
-      // Convert file path to URL
-      return `/uploads/${file.filename}`;
+    const uploadPromises = req.files.map(file => {
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'image',
+            folder: 'foodcarts',
+            format: 'jpg',
+            transformation: [
+              { width: 800, height: 600, crop: 'fill' },
+              { quality: 'auto' }
+            ]
+          },
+          (error, result) => {
+            if (error) {
+              console.error('Cloudinary upload error:', error);
+              reject(error);
+            } else {
+              resolve(result.secure_url);
+            }
+          }
+        );
+        uploadStream.end(file.buffer);
+      });
     });
+
+    const urls = await Promise.all(uploadPromises);
     res.json({ urls });
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: 'Error uploading files' });
   }
 });
