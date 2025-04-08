@@ -125,7 +125,12 @@ router.patch('/:id', auth, upload.array('images', 10), async (req, res) => {
     const updates = Object.keys(req.body);
     updates.forEach(update => {
       if (update !== 'images') {
-        foodCart[update] = req.body[update];
+        if (update === 'foodServed') {
+          // For foodServed, completely replace the array
+          foodCart.foodServed = req.body.foodServed;
+        } else {
+          foodCart[update] = req.body[update];
+        }
       }
     });
 
