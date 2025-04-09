@@ -47,13 +47,27 @@ const logDirectoryContents = (dirPath) => {
   }
 }
 
+// Log current directory and environment
+console.log('Current directory:', __dirname);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Node version:', process.version);
+
 // Check possible build paths
 const possibleBuildPaths = [
   path.join(__dirname, 'client/build'),
   path.join(__dirname, '../client/build'),
-  '/opt/render/project/src/client/build',
-  path.join(__dirname, '../src/client/build')
+  path.join(__dirname, 'build'),
+  path.join(process.cwd(), 'client/build'),
+  path.join(process.cwd(), 'build')
 ];
+
+// Add Render-specific paths if in production
+if (process.env.NODE_ENV === 'production') {
+  possibleBuildPaths.push(
+    '/opt/render/project/src/client/build',
+    path.join(__dirname, '../src/client/build')
+  );
+}
 
 let buildPath = null;
 
@@ -79,6 +93,8 @@ for (const path of possibleBuildPaths) {
 if (!buildPath) {
   console.error('No valid build path found. Current directory contents:');
   logDirectoryContents(__dirname);
+  console.error('Parent directory contents:');
+  logDirectoryContents(path.join(__dirname, '..'));
 }
 
 // API routes - define these before the static file middleware
@@ -86,21 +102,24 @@ app.use('/api/foodcarts', require('./routes/foodcarts'));
 app.use('/api/cartpods', require('./routes/cartpods'));
 app.use('/api/upload', require('./routes/upload'));
 
-// Add API route logging in production
-if (process.env.NODE_ENV === 'production') {
-  app.use('/api', (req, res, next) => {
-    console.log(`API Request: ${req.method} ${req.originalUrl}`);
-    next();
-  });
-}
+// Add API route logging
+app.use('/api', (req, res, next) => {
+  console.log(`API Request: ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Serve static files from React app
-if (process.env.NODE_ENV === 'production' && buildPath) {
+if (buildPath) {
   console.log('Serving static files from:', buildPath);
   app.use(express.static(buildPath));
 
   // Handle React routing
   app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
     const indexPath = path.join(buildPath, 'index.html');
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
@@ -113,15 +132,19 @@ if (process.env.NODE_ENV === 'production' && buildPath) {
 
 // Connect to MongoDB
 const uri = process.env.MONGODB_URI;
-mongoose.connect(uri)
-  .then(() => console.log('MongoDB connection established successfully'))
-  .catch(err => {
-    console.log('Error connecting to MongoDB:', err);
-    console.log('Starting server without database connection. API endpoints will not work.');
-  });
+if (uri) {
+  mongoose.connect(uri)
+    .then(() => console.log('MongoDB connection established successfully'))
+    .catch(err => {
+      console.log('Error connecting to MongoDB:', err);
+      console.log('Starting server without database connection. API endpoints will not work.');
+    });
+} else {
+  console.log('MONGODB_URI not set. Starting server without database connection.');
+}
 
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
-  console.log('Current directory:', __dirname);
-  console.log('Environment:', process.env.NODE_ENV);
-}); 
+  console.log('Build path:', buildPath || 'Not found');
+  console.log('API URL:', process.env.REACT_APP_API_URL || '/api');
+});  
