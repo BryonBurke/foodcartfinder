@@ -66,12 +66,35 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const PORT = process.env.PORT || 5002;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 // Connect to MongoDB
+console.log('Attempting to connect to MongoDB...');
+console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/foodcartfinder', {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000 // 5 second timeout
 })
-.then(() => console.log('MongoDB Connected'))
-.catch(err => console.log('MongoDB Connection Error:', err)); 
+.then(() => {
+  console.log('MongoDB Connected Successfully');
+  // Start server only after successful database connection
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+})
+.catch(err => {
+  console.error('MongoDB Connection Error:', err);
+  console.error('Error details:', {
+    name: err.name,
+    message: err.message,
+    code: err.code,
+    codeName: err.codeName
+  });
+  
+  // Start server even if database connection fails
+  console.log('Starting server despite database connection failure...');
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log('Note: API endpoints requiring database access will not work');
+  });
+}); 
