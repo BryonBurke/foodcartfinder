@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 if (process.env.NODE_ENV === 'production') {
@@ -74,8 +74,17 @@ if (uri) {
   console.log('MONGODB_URI not set. Starting server without database connection.');
 }
 
-app.listen(port, () => {
-  console.log(`Server is running on port: ${port}`);
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log('Current directory:', __dirname);
   console.log('Build path:', buildPath);
-  console.log('API URL:', process.env.REACT_APP_API_URL || '/api');
+  if (fs.existsSync(buildPath)) {
+    console.log('Build directory exists');
+    console.log('Build directory contents:', fs.readdirSync(buildPath));
+  } else {
+    console.log('Build directory does not exist');
+    console.log('Current directory contents:', fs.readdirSync(__dirname));
+    console.log('Parent directory contents:', fs.readdirSync(path.join(__dirname, '..')));
+  }
 });  
