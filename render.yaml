@@ -3,10 +3,37 @@ services:
     name: foodcartfinder
     env: node
     buildCommand: |
+      echo "Step 1: Installing root dependencies..."
       npm install
-      cd client && npm install --legacy-peer-deps && GENERATE_SOURCEMAP=false npm run build && cd ..
+      
+      echo "Step 2: Checking root directory structure..."
+      ls -la
+      
+      echo "Step 3: Installing client dependencies..."
+      cd client
+      echo "Current directory: $(pwd)"
+      npm install --legacy-peer-deps
+      
+      echo "Step 4: Checking client directory structure..."
+      ls -la
+      
+      echo "Step 5: Building client application..."
+      GENERATE_SOURCEMAP=false npm run build
+      
+      echo "Step 6: Verifying build output..."
+      ls -la build
+      
+      echo "Step 7: Creating target build directory..."
+      cd ..
       mkdir -p /opt/render/project/src/client/build
-      cp -r client/build/* /opt/render/project/src/client/build/
+      
+      echo "Step 8: Copying build files..."
+      cp -rv client/build/* /opt/render/project/src/client/build/
+      
+      echo "Step 9: Verifying final build directory..."
+      ls -la /opt/render/project/src/client/build/
+      
+      echo "Build process completed."
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
