@@ -25,76 +25,21 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
-// Function to check if directory exists
-const directoryExists = (path) => {
-  try {
-    return fs.statSync(path).isDirectory();
-  } catch (err) {
-    return false;
-  }
-}
-
-// Function to log directory contents
-const logDirectoryContents = (dirPath) => {
-  try {
-    console.log(`Contents of ${dirPath}:`);
-    const contents = fs.readdirSync(dirPath);
-    console.log(contents);
-    return contents;
-  } catch (err) {
-    console.log(`Error reading directory ${dirPath}:`, err);
-    return [];
-  }
-}
-
 // Log current directory and environment
 console.log('Current directory:', __dirname);
 console.log('Environment:', process.env.NODE_ENV);
 console.log('Node version:', process.version);
 
-// Check possible build paths
-const possibleBuildPaths = [
-  path.join(__dirname, 'client/build'),
-  path.join(__dirname, '../client/build'),
-  path.join(__dirname, 'build'),
-  path.join(process.cwd(), 'client/build'),
-  path.join(process.cwd(), 'build')
-];
+// Define build path
+const buildPath = path.join(__dirname, 'build');
 
-// Add Render-specific paths if in production
-if (process.env.NODE_ENV === 'production') {
-  possibleBuildPaths.push(
-    '/opt/render/project/src/client/build',
-    path.join(__dirname, '../src/client/build')
-  );
-}
-
-let buildPath = null;
-
-// Find the first valid build path
-for (const path of possibleBuildPaths) {
-  console.log(`Checking build path: ${path}`);
-  if (directoryExists(path)) {
-    buildPath = path;
-    console.log(`Found valid build path: ${path}`);
-    logDirectoryContents(path);
-    break;
-  } else {
-    console.log(`Build directory not found at: ${path}`);
-    // Log parent directory contents
-    const parentDir = path.split('/').slice(0, -1).join('/');
-    if (directoryExists(parentDir)) {
-      console.log(`Checking parent directory: ${parentDir}`);
-      logDirectoryContents(parentDir);
-    }
-  }
-}
-
-if (!buildPath) {
-  console.error('No valid build path found. Current directory contents:');
-  logDirectoryContents(__dirname);
-  console.error('Parent directory contents:');
-  logDirectoryContents(path.join(__dirname, '..'));
+// Check if build directory exists
+if (fs.existsSync(buildPath)) {
+  console.log('Build directory found at:', buildPath);
+  console.log('Build directory contents:', fs.readdirSync(buildPath));
+} else {
+  console.error('Build directory not found at:', buildPath);
+  console.error('Current directory contents:', fs.readdirSync(__dirname));
 }
 
 // API routes - define these before the static file middleware
@@ -109,7 +54,7 @@ app.use('/api', (req, res, next) => {
 });
 
 // Serve static files from React app
-if (buildPath) {
+if (fs.existsSync(buildPath)) {
   console.log('Serving static files from:', buildPath);
   app.use(express.static(buildPath));
 
@@ -145,6 +90,6 @@ if (uri) {
 
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
-  console.log('Build path:', buildPath || 'Not found');
+  console.log('Build path:', buildPath);
   console.log('API URL:', process.env.REACT_APP_API_URL || '/api');
 });  
