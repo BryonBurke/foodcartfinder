@@ -8,17 +8,34 @@ const fs = require('fs');
 const app = express();
 
 // Middleware
-app.use(cors());
+if (process.env.NODE_ENV === 'production') {
+  // In production, only allow same-origin requests
+  app.use(cors({
+    origin: process.env.CLIENT_URL || 'https://foodcartfinder.onrender.com'
+  }));
+} else {
+  // In development, allow all origins
+  app.use(cors());
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
-// API routes
+// API routes - define these before the static file middleware
 app.use('/api/foodcarts', require('./routes/foodcarts'));
 app.use('/api/cartpods', require('./routes/cartpods'));
 app.use('/api/upload', require('./routes/upload'));
+
+// Add API route logging in production
+if (process.env.NODE_ENV === 'production') {
+  app.use('/api', (req, res, next) => {
+    console.log(`API Request: ${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
 
 // Serve static files from the React build directory in production
 if (process.env.NODE_ENV === 'production') {
@@ -42,9 +59,17 @@ if (process.env.NODE_ENV === 'production') {
   if (buildPath) {
     console.log('Build directory found at:', buildPath);
     console.log('Build directory contents:', fs.readdirSync(buildPath));
+    
+    // Serve static files
     app.use(express.static(buildPath));
 
+    // This should be the LAST route
     app.get('*', (req, res) => {
+      // Don't serve index.html for API routes
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+      }
+
       const indexPath = path.join(buildPath, 'index.html');
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
