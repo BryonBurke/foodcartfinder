@@ -22,11 +22,26 @@ app.use('/api/upload', require('./routes/upload'));
 
 // Serve static files from the React build directory in production
 if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, 'client/build');
-  console.log('Looking for build directory at:', buildPath);
+  // Try multiple possible build paths
+  const possibleBuildPaths = [
+    path.join(__dirname, 'client/build'),           // Local development path
+    path.join(__dirname, '../client/build'),        // One level up
+    '/opt/render/project/src/client/build',         // Render's path
+    path.join(__dirname, '../src/client/build')     // Render's alternative path
+  ];
 
-  if (fs.existsSync(buildPath)) {
-    console.log('Build directory found. Contents:', fs.readdirSync(buildPath));
+  console.log('Current directory:', __dirname);
+  console.log('Checking possible build paths:', possibleBuildPaths);
+
+  // Find the first valid build path
+  const buildPath = possibleBuildPaths.find(path => {
+    console.log('Checking path:', path);
+    return fs.existsSync(path);
+  });
+
+  if (buildPath) {
+    console.log('Build directory found at:', buildPath);
+    console.log('Build directory contents:', fs.readdirSync(buildPath));
     app.use(express.static(buildPath));
 
     app.get('*', (req, res) => {
@@ -39,11 +54,13 @@ if (process.env.NODE_ENV === 'production') {
       }
     });
   } else {
-    console.error('Build directory not found at:', buildPath);
+    console.error('Build directory not found in any of the possible locations');
     console.error('Current directory contents:', fs.readdirSync(__dirname));
-    console.error('Client directory exists:', fs.existsSync(path.join(__dirname, 'client')));
-    if (fs.existsSync(path.join(__dirname, 'client'))) {
-      console.error('Client directory contents:', fs.readdirSync(path.join(__dirname, 'client')));
+    if (fs.existsSync(path.join(__dirname, '..'))) {
+      console.error('Parent directory contents:', fs.readdirSync(path.join(__dirname, '..')));
+    }
+    if (fs.existsSync('/opt/render/project/src')) {
+      console.error('Render project directory contents:', fs.readdirSync('/opt/render/project/src'));
     }
   }
 }
