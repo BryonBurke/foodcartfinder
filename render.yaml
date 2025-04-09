@@ -3,40 +3,26 @@ services:
     name: foodcartfinder
     env: node
     buildCommand: |
-      echo "Step 1: Installing root dependencies..."
+      echo "Installing dependencies..."
       npm install
-      
-      echo "Step 2: Installing client dependencies..."
-      cd client
-      npm install --legacy-peer-deps
-      
-      echo "Step 3: Building client application..."
-      npm run build
-      
-      echo "Step 4: Moving back to root..."
-      cd ..
-      
-      echo "Step 5: Creating build directory in root..."
-      mkdir -p build
-      
-      echo "Step 6: Copying build files to root build directory..."
-      cp -r client/build/* build/
-      
-      echo "Step 7: Verifying build directory contents..."
-      ls -la build/
-      
-      echo "Step 8: Verifying server files..."
-      ls -la
+      echo "Building client application..."
+      cd client && npm install && npm run build
+      echo "Build complete. Contents of client/build:"
+      ls -la client/build
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
-        sync: false
+        fromDatabase:
+          name: foodcartfinder-db
+          property: uri
+      - key: JWT_SECRET
+        generateValue: true
       - key: REACT_APP_API_URL
-        value: https://foodcartfinder.onrender.com/api
-      - key: CLIENT_URL
-        value: https://foodcartfinder.onrender.com
+        value: /api
+    healthCheckPath: /api/health
+    autoDeploy: true
     buildFilter:
       paths:
       - client/**
