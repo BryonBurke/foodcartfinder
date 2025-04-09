@@ -24,15 +24,25 @@ services:
       
       echo "Step 7: Verifying build directory..."
       ls -la /opt/render/project/src/client/build/
+      
+      echo "Step 8: Verifying server files..."
+      ls -la
+      ls -la routes/
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
         sync: false
+      - key: REACT_APP_API_URL
+        value: /api
     buildFilter:
       paths:
       - client/**
       - server.js
       - package.json
-      - routes/** 
+      - routes/**
+      - config/**
+      - models/**
+      - .env
+      - .env.production 
