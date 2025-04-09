@@ -4,7 +4,7 @@ services:
     env: node
     buildCommand: |
       npm install
-      cd client && npm install && npm run build && cd ..
+      cd client && npm install --legacy-peer-deps && GENERATE_SOURCEMAP=false npm run build && cd ..
       mkdir -p /opt/render/project/src/client/build
       cp -r client/build/* /opt/render/project/src/client/build/
     startCommand: node server.js
