@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+const port = process.env.PORT || 5000;
 
 // Middleware
 if (process.env.NODE_ENV === 'production') {
@@ -24,6 +25,62 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
+// Function to check if directory exists
+const directoryExists = (path) => {
+  try {
+    return fs.statSync(path).isDirectory();
+  } catch (err) {
+    return false;
+  }
+}
+
+// Function to log directory contents
+const logDirectoryContents = (dirPath) => {
+  try {
+    console.log(`Contents of ${dirPath}:`);
+    const contents = fs.readdirSync(dirPath);
+    console.log(contents);
+    return contents;
+  } catch (err) {
+    console.log(`Error reading directory ${dirPath}:`, err);
+    return [];
+  }
+}
+
+// Check possible build paths
+const possibleBuildPaths = [
+  path.join(__dirname, 'client/build'),
+  path.join(__dirname, '../client/build'),
+  '/opt/render/project/src/client/build',
+  path.join(__dirname, '../src/client/build')
+];
+
+let buildPath = null;
+
+// Find the first valid build path
+for (const path of possibleBuildPaths) {
+  console.log(`Checking build path: ${path}`);
+  if (directoryExists(path)) {
+    buildPath = path;
+    console.log(`Found valid build path: ${path}`);
+    logDirectoryContents(path);
+    break;
+  } else {
+    console.log(`Build directory not found at: ${path}`);
+    // Log parent directory contents
+    const parentDir = path.split('/').slice(0, -1).join('/');
+    if (directoryExists(parentDir)) {
+      console.log(`Checking parent directory: ${parentDir}`);
+      logDirectoryContents(parentDir);
+    }
+  }
+}
+
+if (!buildPath) {
+  console.error('No valid build path found. Current directory contents:');
+  logDirectoryContents(__dirname);
+}
+
 // API routes - define these before the static file middleware
 app.use('/api/foodcarts', require('./routes/foodcarts'));
 app.use('/api/cartpods', require('./routes/cartpods'));
@@ -37,89 +94,34 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Serve static files from the React build directory in production
-if (process.env.NODE_ENV === 'production') {
-  // Try multiple possible build paths
-  const possibleBuildPaths = [
-    path.join(__dirname, 'client/build'),           // Local development path
-    path.join(__dirname, '../client/build'),        // One level up
-    '/opt/render/project/src/client/build',         // Render's path
-    path.join(__dirname, '../src/client/build')     // Render's alternative path
-  ];
+// Serve static files from React app
+if (process.env.NODE_ENV === 'production' && buildPath) {
+  console.log('Serving static files from:', buildPath);
+  app.use(express.static(buildPath));
 
-  console.log('Current directory:', __dirname);
-  console.log('Checking possible build paths:', possibleBuildPaths);
-
-  // Find the first valid build path
-  const buildPath = possibleBuildPaths.find(path => {
-    console.log('Checking path:', path);
-    return fs.existsSync(path);
+  // Handle React routing
+  app.get('*', (req, res) => {
+    const indexPath = path.join(buildPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      console.error(`index.html not found at ${indexPath}`);
+      res.status(404).send('Build files not found');
+    }
   });
-
-  if (buildPath) {
-    console.log('Build directory found at:', buildPath);
-    console.log('Build directory contents:', fs.readdirSync(buildPath));
-    
-    // Serve static files
-    app.use(express.static(buildPath));
-
-    // This should be the LAST route
-    app.get('*', (req, res) => {
-      // Don't serve index.html for API routes
-      if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'API endpoint not found' });
-      }
-
-      const indexPath = path.join(buildPath, 'index.html');
-      if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-      } else {
-        console.error('index.html not found in build directory');
-        res.status(404).send('Application files not found');
-      }
-    });
-  } else {
-    console.error('Build directory not found in any of the possible locations');
-    console.error('Current directory contents:', fs.readdirSync(__dirname));
-    if (fs.existsSync(path.join(__dirname, '..'))) {
-      console.error('Parent directory contents:', fs.readdirSync(path.join(__dirname, '..')));
-    }
-    if (fs.existsSync('/opt/render/project/src')) {
-      console.error('Render project directory contents:', fs.readdirSync('/opt/render/project/src'));
-    }
-  }
 }
 
-const PORT = process.env.PORT || 5002;
-
 // Connect to MongoDB
-console.log('Attempting to connect to MongoDB...');
-console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
-console.log('NODE_ENV:', process.env.NODE_ENV);
+const uri = process.env.MONGODB_URI;
+mongoose.connect(uri)
+  .then(() => console.log('MongoDB connection established successfully'))
+  .catch(err => {
+    console.log('Error connecting to MongoDB:', err);
+    console.log('Starting server without database connection. API endpoints will not work.');
+  });
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/foodcartfinder', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000 // 5 second timeout
-})
-.then(() => {
-  console.log('MongoDB Connected Successfully');
-  // Start server only after successful database connection
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-})
-.catch(err => {
-  console.error('MongoDB Connection Error:', err);
-  console.error('Error details:', {
-    name: err.name,
-    message: err.message,
-    code: err.code,
-    codeName: err.codeName
-  });
-  
-  // Start server even if database connection fails
-  console.log('Starting server despite database connection failure...');
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log('Note: API endpoints requiring database access will not work');
-  });
+app.listen(port, () => {
+  console.log(`Server is running on port: ${port}`);
+  console.log('Current directory:', __dirname);
+  console.log('Environment:', process.env.NODE_ENV);
 }); 
