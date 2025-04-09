@@ -32,6 +32,7 @@ console.log('Node version:', process.version);
 
 // Define build path
 const buildPath = path.join(__dirname, 'client/build');
+console.log('Build path:', buildPath);
 
 // Check if build directory exists
 if (fs.existsSync(buildPath)) {
@@ -40,6 +41,7 @@ if (fs.existsSync(buildPath)) {
 } else {
   console.error('Build directory not found at:', buildPath);
   console.error('Current directory contents:', fs.readdirSync(__dirname));
+  console.error('Parent directory contents:', fs.readdirSync(path.join(__dirname, '..')));
 }
 
 // API routes - define these before the static file middleware
@@ -54,12 +56,31 @@ app.use('/api', (req, res, next) => {
 });
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, 'client/build')));
+if (fs.existsSync(buildPath)) {
+  console.log('Serving static files from:', buildPath);
+  app.use(express.static(buildPath));
 
-// Handle React routing, return all requests to React app
-app.get('*', function(req, res) {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-});
+  // Handle React routing
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
+    const indexPath = path.join(buildPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      console.error(`index.html not found at ${indexPath}`);
+      res.status(404).send('Build files not found');
+    }
+  });
+} else {
+  console.error('Cannot serve static files - build directory not found');
+  app.get('*', (req, res) => {
+    res.status(500).send('Build files not found. Please check the server logs.');
+  });
+}
 
 // Connect to MongoDB
 const uri = process.env.MONGODB_URI;
