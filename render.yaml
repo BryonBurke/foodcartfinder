@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: foodcartfinder
+    env: node
+    buildCommand: npm install && npm run install-client && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+    buildFilter:
+      paths:
+      - client/**
+      - server.js
+      - package.json
+      - routes/** 
