@@ -34,7 +34,9 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: REACT_APP_API_URL
-        value: /api
+        value: https://foodcartfinder.onrender.com/api
+      - key: CLIENT_URL
+        value: https://foodcartfinder.onrender.com
     buildFilter:
       paths:
       - client/**
